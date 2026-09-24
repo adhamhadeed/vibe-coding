@@ -15,3 +15,24 @@ export type UsageOverTime = {
   granularity: 'day'
   points: UsageOverTimePoint[]
 }
+
+export type UsageEvent = {
+  id: number
+  occurredAt: string
+  model: string
+  provider: string
+  feature: string
+  environment: string
+  tokensIn: number
+  tokensOut: number
+  costUsd: number
+  latencyMs: number
+  status: 'success' | 'error'
+}
+
+export type UsageEventsPage = {
+  data: UsageEvent[]
+  total: number
+  limit: number
+  offset: number
+}

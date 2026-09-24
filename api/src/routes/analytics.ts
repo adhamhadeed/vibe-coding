@@ -1,7 +1,8 @@
 import { Router } from 'express'
 import { pool } from '../db'
 import { DateRangeError, parseDateRange } from '../lib/dateRange'
-import type { AnalyticsOverview, UsageOverTime } from '../types'
+import { PaginationError, parsePagination } from '../lib/pagination'
+import type { AnalyticsOverview, UsageEvent, UsageEventsPage, UsageOverTime } from '../types'
 
 const router = Router()
 
@@ -136,6 +137,106 @@ router.get('/usage-over-time', async (req, res) => {
     res.status(500).json({
       code: 'USAGE_OVER_TIME_FAILED',
       message: 'Could not load usage over time.',
+    })
+  }
+})
+
+router.get('/events', async (req, res) => {
+  try {
+    const range = parseDateRange(req.query.from, req.query.to)
+    const pagination = parsePagination(req.query.limit, req.query.offset)
+
+    const countResult = range
+      ? await pool.query<{ total: string | number }>(
+          'SELECT COUNT(*)::int AS total FROM usage_events WHERE occurred_at >= $1 AND occurred_at <= $2',
+          [range.from, range.to],
+        )
+      : await pool.query<{ total: string | number }>(
+          'SELECT COUNT(*)::int AS total FROM usage_events',
+        )
+
+    const listResult = range
+      ? await pool.query(
+          `SELECT
+            id,
+            occurred_at,
+            model,
+            provider,
+            feature,
+            environment,
+            tokens_in,
+            tokens_out,
+            cost_usd,
+            latency_ms,
+            status
+          FROM usage_events
+          WHERE occurred_at >= $1 AND occurred_at <= $2
+          ORDER BY occurred_at DESC, id DESC
+          LIMIT $3 OFFSET $4`,
+          [range.from, range.to, pagination.limit, pagination.offset],
+        )
+      : await pool.query(
+          `SELECT
+            id,
+            occurred_at,
+            model,
+            provider,
+            feature,
+            environment,
+            tokens_in,
+            tokens_out,
+            cost_usd,
+            latency_ms,
+            status
+          FROM usage_events
+          ORDER BY occurred_at DESC, id DESC
+          LIMIT $1 OFFSET $2`,
+          [pagination.limit, pagination.offset],
+        )
+
+    const data: UsageEvent[] = listResult.rows.map((row) => ({
+      id: Number(row.id),
+      occurredAt: new Date(row.occurred_at).toISOString(),
+      model: row.model,
+      provider: row.provider,
+      feature: row.feature,
+      environment: row.environment,
+      tokensIn: Number(row.tokens_in),
+      tokensOut: Number(row.tokens_out),
+      costUsd: Number(row.cost_usd),
+      latencyMs: Number(row.latency_ms),
+      status: row.status,
+    }))
+
+    const page: UsageEventsPage = {
+      data,
+      total: Number(countResult.rows[0]?.total ?? 0),
+      limit: pagination.limit,
+      offset: pagination.offset,
+    }
+
+    res.json(page)
+  } catch (error) {
+    if (error instanceof DateRangeError) {
+      res.status(400).json({
+        code: 'INVALID_DATE_RANGE',
+        message: error.message,
+      })
+      return
+    }
+
+    if (error instanceof PaginationError) {
+      res.status(400).json({
+        code: 'INVALID_PAGINATION',
+        message: error.message,
+      })
+      return
+    }
+
+    console.error(error)
+    res.status(500).json({
+      code: 'EVENTS_FAILED',
+      message: 'Could not load usage events.',
     })
   }
 })
