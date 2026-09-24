@@ -1,10 +1,14 @@
+import { useState } from 'react'
+import { DateRangeFilter } from '../components/filters/DateRangeFilter'
 import { KpiRow } from '../components/kpi/KpiRow'
 import { useCheckHealth } from '../hooks/useCheckHealth'
 import { useOverview } from '../hooks/useOverview'
+import { getDateRangeLabel, type DateRangePreset } from '../lib/dateRange'
 
 export function DashboardPage() {
+  const [range, setRange] = useState<DateRangePreset>('7d')
   const { state, message, checkHealth } = useCheckHealth()
-  const overviewQuery = useOverview()
+  const overviewQuery = useOverview(range)
   const isEmpty =
     overviewQuery.isSuccess && overviewQuery.data.totalEvents === 0
 
@@ -56,9 +60,17 @@ export function DashboardPage() {
         </section>
 
         <section className="mt-8">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-slate-500">
-            Analytics overview
-          </h2>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-sm font-medium uppercase tracking-wide text-slate-500">
+                Analytics overview
+              </h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Showing: {getDateRangeLabel(range)}
+              </p>
+            </div>
+            <DateRangeFilter value={range} onChange={setRange} />
+          </div>
 
           {overviewQuery.isError && (
             <div className="mt-4 rounded-xl border border-red-200 bg-white p-6">
@@ -80,7 +92,7 @@ export function DashboardPage() {
 
           {!overviewQuery.isError && isEmpty && (
             <p className="mt-4 rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
-              No usage events yet. Run the API seed script to load demo data.
+              No usage events in this period.
             </p>
           )}
 

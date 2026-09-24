@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { api } from './api'
+import type { OverviewParams } from './dateRange'
 
 export type AnalyticsOverview = {
   totalEvents: number
@@ -9,9 +10,13 @@ export type AnalyticsOverview = {
   successRate: number
 }
 
-export async function getOverview(): Promise<AnalyticsOverview> {
+export async function getOverview(
+  params: OverviewParams = {},
+): Promise<AnalyticsOverview> {
   try {
-    const { data } = await api.get<AnalyticsOverview>('/api/analytics/overview')
+    const { data } = await api.get<AnalyticsOverview>('/api/analytics/overview', {
+      params,
+    })
     return data
   } catch (error) {
     if (axios.isAxiosError(error)) {
